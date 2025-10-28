@@ -5,8 +5,6 @@
 
 # Getting started
 
-[[_TOC_]]
-
 ## Requirements
 
 - Docker (necessary)
