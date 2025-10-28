@@ -1,0 +1,42 @@
+{
+    "blacklisted_nodes": [
+        {
+            "node_name": "abstract_bb_setter",
+            "namespace": "/managed_subsystem"
+        },
+        {
+            "node_name": "ros2_system_analyzer",
+            "namespace": "/"
+        },
+        {
+            "node_name": "bt_monitoring_subscriber",
+            "namespace": "/"
+        },
+        {
+            "node_name": "rosbag2_player",
+            "namespace": "/"
+        }
+    ],
+    "needed_nodes": [
+        {
+            "node_name": "camera",
+            "namespace": "/managed_subsystem"
+        },
+        {
+            "node_name": "sensor_fusion",
+            "namespace": "/managed_subsystem"
+        },
+        {
+            "node_name": "depth",
+            "namespace": "/managed_subsystem"
+        },
+        {
+            "node_name": "segmentation",
+            "namespace": "/managed_subsystem"
+        },
+        {
+            "node_name": "image_enhancement",
+            "namespace": "/managed_subsystem"
+        }
+    ]
+}

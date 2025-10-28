@@ -1,0 +1,45 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "/managed_subsystem/camera"
+    },
+    {
+      "id": "/managed_subsystem/depth"
+    },
+    {
+      "id": "/managed_subsystem/image_enhancement"
+    },
+    {
+      "id": "/managed_subsystem/sensor_fusion"
+    },
+    {
+      "id": "/managed_subsystem/segmentation"
+    }
+  ],
+  "links": [
+    {
+      "label": [
+        "system_interfaces/srv/SetHeartbeatStatus"
+      ],
+      "source": "/managed_subsystem/image_enhancement",
+      "target": "/managed_subsystem/camera"
+    },
+    {
+      "label": [
+        "sensor_msgs/msg/Image"
+      ],
+      "source": "/managed_subsystem/sensor_fusion",
+      "target": "/managed_subsystem/camera"
+    },
+    {
+      "label": [
+        "sensor_msgs/msg/Image"
+      ],
+      "source": "/managed_subsystem/sensor_fusion",
+      "target": "/managed_subsystem/depth"
+    }
+  ]
+}

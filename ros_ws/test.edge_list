@@ -1,0 +1,4 @@
+/managed_subsystem/camera /managed_subsystem/image_enhancement {'label': ['system_interfaces/srv/SetHeartbeatStatus']}
+/managed_subsystem/camera /managed_subsystem/sensor_fusion {'label': ['sensor_msgs/msg/Image']}
+/managed_subsystem/sensor_fusion /managed_subsystem/segmentation {'label': ['system_interfaces/msg/SensorFusion']}
+/managed_subsystem/depth /managed_subsystem/sensor_fusion {'label': ['sensor_msgs/msg/Image']}

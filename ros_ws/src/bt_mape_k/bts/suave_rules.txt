@@ -1,0 +1,18 @@
+BEGIN CONSTS
+    int const_flight_phase_not_set 0
+    int const_flight_phase_set 3
+    double new_degradation 2.5
+    string enhanced_rgb_topic rgb_enhanced
+    string raw_rgb_topic rgb_camera_repub 
+END CONSTS
+BEGIN RULES
+    RULE f_generate_search_path ON_TRIGGER_CHANGE
+    COMPONENTS [/managed_subsystem/camera]
+    IF (const_flight_phase_not_set < const_flight_phase_set)
+    THEN action_redeploy
+
+    RULE adapt_camera_topic ON_TRIGGER_CHANGE
+    COMPONENTS [/managed_subsystem/sensor_fusion]
+    IF (const_flight_phase_not_set > const_flight_phase_set)
+    THEN action_change_communication topic_camera_input enhanced_rgb_topic  
+END RULES
