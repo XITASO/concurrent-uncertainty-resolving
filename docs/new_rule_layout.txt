@@ -1,0 +1,8 @@
+RULE "NAME" "POLICY"
+TRIGGER "Expression"
+STRATEGY "NAME"
+	ADAPTATION "Component" "Type" "Ex + pr * es - si < on"
+	ADAPTATION "Component" "Type" "Ex + pr * es - si < on"
+STRATEGY "NAME"
+	ADAPTATION "Component" "Type" "Ex + pr * es - si < on"
+	ADAPTATION "Component" "Type" "Ex + pr * es - si < on"

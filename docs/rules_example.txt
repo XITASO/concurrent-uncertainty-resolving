@@ -1,0 +1,31 @@
+BEGIN CONSTS
+    double fov 60
+    double sensor_range 200
+	double cwp_x_utm 697583.9
+	double cwp_y_utm 5791233.0
+	double tolerated_distance_to_path 20
+	double tolerated_model_entropy
+END CONSTS
+BEGIN RULES
+    RULE update_flightphase OK ON_TRIGGER_CHANGE
+        TRIGGER (cwp_x_utm - state.x)^2 + (cwp_x_utm - state.x)^2 < 5  
+        STRATEGY update_flightphase
+			ADAPTATION slam action_change_mode "cruise"
+			ADAPTATION path_planning action_change_mode "cruise"
+			ADAPTATION image_enhancement action_change_mode "cruise"
+
+    RULE off_path DEGRADED 
+        TRIGGER path_planning.distance_to_path < tolerated_distance_to_path
+        STRATEGY align_to_path
+            ADAPTATION path_planning action_change_mode "realign"
+        STRATEGY restart_planning
+			ADAPTATION path_planning action_redeploy
+
+	RULE vision_system_degraded 
+		TRIGGER (state.psi - utils.sun_angle)^2 < 20^2 || image_segmentation.entropy > tolerated_model_entropy
+        STRATEGY add_image_enhancement
+            ADAPTATION image_segmentation action_change_communication camera_topic "/enhanced_image"
+	RULE image_degraded DEGRADED
+        TRIGGER 
+	RULE 
+END RULES

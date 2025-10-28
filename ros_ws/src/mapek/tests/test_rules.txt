@@ -1,0 +1,22 @@
+BEGIN CONSTS
+    bool mybool true
+    double mydouble 2.
+    string mystring henlo
+END CONSTS
+BEGIN RULES
+    RULE myRule1 
+        POLICIES DEGRADED ON_TICK 1/4
+        TRIGGER 1+2==3
+        STRATEGY strat_1 32.3
+            ADAPTATION lidar action_restart
+            ADAPTATION camera action_set_parameter myparam 1+2+3
+        STRATEGY strat_2 67.7
+            ADAPTATION segmentation action_change_communication my_topic "/topic_test"
+
+    RULE myRule2
+        POLICIES OK ON_CHANGE 1/1
+        TRIGGER !mybool
+        STRATEGY strat_1 100
+            ADAPTATION lidar action_restart
+            ADAPTATION lidar action_redeploy
+END RULES
