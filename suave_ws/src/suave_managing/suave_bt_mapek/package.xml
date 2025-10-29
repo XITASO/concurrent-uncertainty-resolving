@@ -4,7 +4,7 @@
   <name>suave_bt_mapek</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="andreas.wiedholz@xitaso.com">kasm-user</maintainer>
+  <maintainer email="blind@review.co">kasm-user</maintainer>
   <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>
