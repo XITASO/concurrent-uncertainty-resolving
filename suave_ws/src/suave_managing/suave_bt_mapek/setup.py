@@ -18,7 +18,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='kasm-user',
-    maintainer_email='andreas.wiedholz@xitaso.com',
+    maintainer_email='blind@review.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
