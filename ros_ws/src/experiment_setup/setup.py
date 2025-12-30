@@ -14,6 +14,7 @@ setup(
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
         (os.path.join("share", package_name, "resources"), glob("resources/*.yaml")),
         (os.path.join("share", package_name, "resources", "scenarios"), glob("resources/scenarios/*.yaml")),
+        (os.path.join("share", package_name, "resources", "scenarios", "fixedScenarios"), glob("resources/scenarios/fixedScenarios/*.yaml")),
         (os.path.join("share", package_name, "templates"), glob("experiment_setup/templates/*.jinja")),
     ],
     install_requires=["setuptools"],

@@ -62,7 +62,11 @@ class SensorFusionNode(ENGELBaseClass):
         return super().on_configure(state)
 
     def on_activate(self, state: LifecycleState):
-        self.do_drop_sensor_fusion = False
+        self.invoke_parameter_change_callback(
+            {
+                "do_drop_sensor_fusion": False,
+            }
+        )
         return super().on_activate(state)
 
     def rgb_callback(self, image: Image) -> None:
@@ -150,8 +154,12 @@ class SensorFusionNode(ENGELBaseClass):
 
         if self.do_recalibration:
             self.logger.info("Sensor fusion is doing recalibration")
-            self.image_shift = 0
-            self.do_recalibration = False
+            self.invoke_parameter_change_callback(
+                {
+                    "image_shift": 0,
+                    "do_recalibration": False
+                }
+            )
         header = Header()
         header.frame_id = f"{self.ns}/sensors_fused"
         if self.modality == FusionType.DEPTH:

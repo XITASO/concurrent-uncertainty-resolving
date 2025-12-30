@@ -616,7 +616,28 @@ class ENGELBaseClass(Node):
         self.logger.debug(f"Handling {param} value change was successfull: {success}")
         return success
     
+    def invoke_parameter_change_callback(self, updates: Dict[str, Any]) -> None:
+        """Internally invoke the parameter change callback logic.
 
+        This allows the node itself to reuse the same validation/update path as external SetParameters requests
+        without code duplication. If commit is True, will call set_parameters to persist changes and trigger
+        the external callback path. If commit is False, only class attributes are updated (transient/local change).
+
+        Args:
+            updates (Dict[str, Any]): Mapping of parameter names to new values.
+            commit (bool): Whether to propagate changes to the ROS parameter server.
+        """
+        # Build Parameter objects
+        params = [Parameter(name=k, value=v) for k, v in updates.items()]
+
+        # Updates class attributes
+
+        if self.parameter_change_callback(params) != SetParametersResult(successful=True):
+            self.logger.error(f"Internal parameter change callback for {updates} failed") 
+
+        if self.set_parameters(params) != [SetParametersResult(successful=True)] * len(params):
+            self.logger.error(f"Internal parameter set for {updates} failed")
+    
     def check_lc_state(self) -> None:
         """React to changes in the life cycle state. Note that this is triggered with a timer and not only on change compared to functions like on_shutdown."""
         if self.lc_state == LcState.PRIMARY_STATE_FINALIZED:

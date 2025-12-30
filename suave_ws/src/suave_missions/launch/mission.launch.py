@@ -120,7 +120,7 @@ def generate_launch_description():
 
     suave_bt_mapek_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapek_bt_launch_path),
-        condition=LaunchConfigurationEquals('adaptation_manager', 'bt_mape_k'))
+        condition=LaunchConfigurationEquals('adaptation_manager', 'bt_mapek'))
 
     return LaunchDescription([
         adaptation_manager_arg,

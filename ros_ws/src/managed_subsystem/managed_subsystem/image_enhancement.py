@@ -35,7 +35,7 @@ class ImageEnhancementNode(ENGELBaseClass):
         super().__init__(node_name, comm_types, config_file, namespace="managed_subsystem")
 
         self.trigger_configure()
-        #self.trigger_activate()
+        self.trigger_activate()
 
         self.bridge = CvBridge()
 

@@ -102,9 +102,17 @@ class DepthNode(ENGELBaseClass):
         flight_phase_msg (Flightphase): The current flightphase published by the flight phase assistant.
         """
         if flight_phase_msg.flightphase in [Flightphase.APPROACH, Flightphase.FINAL_APPROACH, Flightphase.LANDING, Flightphase.DESCENT]:
-            self.depth_degradation = 0.0
+            self.invoke_parameter_change_callback(
+            {
+                "depth_degradation": 0.0,
+            }
+        )
         else:
-            self.depth_degradation = 1.0
+            self.invoke_parameter_change_callback(
+            {
+                "depth_degradation": 1.0,
+            }
+        )
 
 def main() -> None:
     """

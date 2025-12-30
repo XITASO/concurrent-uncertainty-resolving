@@ -55,7 +55,11 @@ class SegmentationNode(ENGELBaseClass):
         return super().on_configure(state)
 
     def on_activate(self, state: LifecycleState):
-        self.do_drop_segmentation = False
+        self.invoke_parameter_change_callback(
+            {
+                "do_drop_segmentation": False,
+            }
+        )
         return super().on_activate(state)
 
     def fusion_callback(self, fusion_data: SensorFusion) -> None:

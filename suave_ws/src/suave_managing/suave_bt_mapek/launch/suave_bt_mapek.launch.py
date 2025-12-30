@@ -80,14 +80,9 @@ def generate_launch_description():
                 executable="bt_executor",
             )
 
-    experiment_logger = Node(
-                package="experiment_setup",
-                executable="experiment_logger",
-            )
-
     blackboard_setter = Node(
                 package='managed_subsystem',
-                executable='abstract_blackboard_setter',
+                executable='blackboard_setter',
             )
 
     return LaunchDescription([
@@ -97,7 +92,6 @@ def generate_launch_description():
         suave_launch,
         mission_node,
         mission_metrics_node,
-        bt_executor,
-        blackboard_setter,
-        experiment_logger
+        #bt_executor,
+        blackboard_setter
     ])

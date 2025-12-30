@@ -65,8 +65,12 @@ class CameraNode(ENGELBaseClass):
         return super().on_configure(state)
 
     def on_activate(self, state: LifecycleState):
-        self.do_drop_rgb_camera = False
-        self.image_degradation = 0.
+        self.invoke_parameter_change_callback(
+            {
+                "do_drop_rgb_camera": False,
+                "image_degradation": 0,
+            }
+        )
         return super().on_activate(state)
 
     def raw_rgb_callback(self, msg: Image) -> None:
@@ -85,8 +89,12 @@ class CameraNode(ENGELBaseClass):
         
         if self.perform_autofocus:
             self.add_diagnostic_value(key="autofocus_needed", value="False")
-            self.perform_autofocus = False
-            self.autofocus_needed = False
+            self.invoke_parameter_change_callback(
+            {
+                "perform_autofocus": False,
+                "autofocus_needed": False,
+            }
+        )
 
         if self.image_degradation > 0.0 and self.reset_timer is None: # type: ignore
             # If image_degradation is greater than 0.0 and timer is not already set
@@ -158,7 +166,11 @@ class CameraNode(ENGELBaseClass):
         """
         Resets image_degradation to 0.0 and cancels the timer.
         """
-        self.image_degradation = 0.0
+        self.invoke_parameter_change_callback(
+            {
+                "image_degradation": 0.0,
+            }
+        )
         self.reset_timer.cancel()
         self.reset_timer = None
         self.logger.info("Image degradation has been reset to 0.0")
