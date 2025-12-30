@@ -67,6 +67,7 @@ class SensorFusionNode(ENGELBaseClass):
                 "do_drop_sensor_fusion": False,
             }
         )
+
         return super().on_activate(state)
 
     def rgb_callback(self, image: Image) -> None:

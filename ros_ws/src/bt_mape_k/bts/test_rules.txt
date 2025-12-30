@@ -59,4 +59,3 @@ BEGIN RULES
       STRATEGY sensor_fusion_redeploy 60
           ADAPTATION /managed_subsystem/sensor_fusion action_redeploy 50
 END RULES
-

@@ -71,6 +71,7 @@ class CameraNode(ENGELBaseClass):
                 "image_degradation": 0,
             }
         )
+
         return super().on_activate(state)
 
     def raw_rgb_callback(self, msg: Image) -> None:
@@ -171,6 +172,7 @@ class CameraNode(ENGELBaseClass):
                 "image_degradation": 0.0,
             }
         )
+
         self.reset_timer.cancel()
         self.reset_timer = None
         self.logger.info("Image degradation has been reset to 0.0")
