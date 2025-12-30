@@ -17,8 +17,6 @@
 ## Additional data
 
 Download the segmentation models and the ros bags with test data from the a server with the scp command (password `seams`):
-=======
-Download the segmentation models and the ros bags with test data from the a server with the scp command (password `seams`, fingerprint: SHA256:2JiosHIjBy/5rI8HJsrVCtHeCwRsajRPMWcLrqMKjxs):
 
 ```bash
 scp seams-reviewer@65.108.55.103:/home/seams-reviewer/data.zip .
