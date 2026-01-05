@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Number of repetitions
-REPEAT=40
+REPEAT=54
 managing_system_combinations=(
     "false false false"  # CONSIDER_DEPENDENCIES CONSIDER_CRITICALITY_LEVEL CONSIDER_COST_FUNCTION
     "false false true"
     "false true false"
     "false true true"
-    #"true false false"
-    #"true false true"
-    #"true true false"
-    #"true true true"
+    "true false false"
+    "true false true"
+    "true true false"
+    "true true true"
 )
 
 echo "Starting experiment with all managing system combinations..."
