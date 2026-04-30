@@ -12,50 +12,42 @@ BEGIN RULES
     RULE AutoFocusNeeded
       POLICIES OK ON_TICK 1/1
       TRIGGER camera_autofocus_needed == true 
-      STRATEGY autofocus_strategy 100
-          ADAPTATION /managed_subsystem/camera action_set_parameter perform_autofocus true 1
+      STRATEGY autofocus_strategy 100 10
+          ADAPTATION /managed_subsystem/camera action_set_parameter perform_autofocus true 20
 
     RULE SegmentationBad
       POLICIES DEGRADED ON_TICK 1/1
       TRIGGER segmentation_entropy > 0.06
-      STRATEGY recalibration 60
-          ADAPTATION /managed_subsystem/sensor_fusion action_set_parameter do_recalibration true 10
-      STRATEGY enhancement_activate 20
-          ADAPTATION /managed_subsystem/image_enhancement action_activate 25
+      STRATEGY recalibration 60 10
+          ADAPTATION /managed_subsystem/sensor_fusion action_set_parameter do_recalibration true 30
+      STRATEGY enhancement_activate 20 10
+          ADAPTATION /managed_subsystem/image_enhancement action_activate 60
           ADAPTATION /managed_subsystem/sensor_fusion action_change_communication topic_camera_input rgb_enhanced 2
-      STRATEGY enhancement_deactivate 20
-          ADAPTATION /managed_subsystem/image_enhancement action_deactivate 25
+      STRATEGY enhancement_deactivate 20 10
+          ADAPTATION /managed_subsystem/image_enhancement action_deactivate 60
           ADAPTATION /managed_subsystem/sensor_fusion action_change_communication topic_camera_input rgb_raw 2
-
-    RULE DepthDead
-      POLICIES FAILURE ON_TICK 1/1
-      TRIGGER managed_subsystem_depth_camera_freq < 1.
-      STRATEGY depth_restart 40
-          ADAPTATION /managed_subsystem/depth action_restart 25
-      STRATEGY depth_redeploy 60
-          ADAPTATION /managed_subsystem/depth action_redeploy 50
 
     RULE SegmentationDead
       POLICIES FAILURE ON_TICK 1/1
       TRIGGER managed_subsystem_segmentation_freq < 1.
-      STRATEGY segmentation_restart 40
-          ADAPTATION /managed_subsystem/segmentation action_restart 25
-      STRATEGY segmentation_redeploy 60
-          ADAPTATION /managed_subsystem/segmentation action_redeploy 50
+      STRATEGY segmentation_restart 40 10
+          ADAPTATION /managed_subsystem/segmentation action_restart 50
+      STRATEGY segmentation_redeploy 60 10
+          ADAPTATION /managed_subsystem/segmentation action_redeploy 100
 
     RULE RGBDead
       POLICIES FAILURE ON_TICK 1/1
       TRIGGER managed_subsystem_rgb_camera_freq < 1.
-      STRATEGY rgb_restart 40 
-          ADAPTATION /managed_subsystem/camera action_restart 25
-      STRATEGY rgb_redeploy 60
-          ADAPTATION /managed_subsystem/camera action_redeploy 50
+      STRATEGY rgb_restart 40 10
+          ADAPTATION /managed_subsystem/camera action_restart 50
+      STRATEGY rgb_redeploy 60 10
+          ADAPTATION /managed_subsystem/camera action_redeploy 150
 
     RULE SensorFusionDead
       POLICIES FAILURE ON_TICK 1/1
       TRIGGER managed_subsystem_sensors_fused_freq < 1.
-      STRATEGY sensor_fusion_restart 40
-          ADAPTATION /managed_subsystem/sensor_fusion action_restart 25
-      STRATEGY sensor_fusion_redeploy 60
-          ADAPTATION /managed_subsystem/sensor_fusion action_redeploy 50
+      STRATEGY sensor_fusion_restart 40 10
+          ADAPTATION /managed_subsystem/sensor_fusion action_restart 50
+      STRATEGY sensor_fusion_redeploy 60 10
+          ADAPTATION /managed_subsystem/sensor_fusion action_redeploy 100
 END RULES

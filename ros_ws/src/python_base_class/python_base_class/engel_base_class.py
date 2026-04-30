@@ -12,6 +12,9 @@ from diagnostic_msgs.msg import DiagnosticStatus, DiagnosticArray, KeyValue
 from rcl_interfaces.msg import SetParametersResult
 import yaml
 from rclpy.qos import QoSProfile
+import csv
+from datetime import datetime
+from pathlib import Path
 
 
 class ENGELBaseClass(Node):
@@ -493,7 +496,9 @@ class ENGELBaseClass(Node):
         config_file (str): The path to the YAML configuration file containing the parameters.
 
         This method reads the configuration file, extracts the parameters specific to the node's name,
-        and declares these parameters in the node.
+        and declares these parameters in the node. It also attempts to load the last parameter values
+        from the parameters.csv file in the user's home directory. If a parameter exists in both the
+        config file and the CSV file, the CSV value is used instead of the config file value.
         """
         try:
             with open(config_file, "r") as f:
@@ -503,6 +508,17 @@ class ENGELBaseClass(Node):
             return
 
         if self.params:
+            # Load the last parameter values from CSV if available
+            csv_params = self._load_parameters_from_csv()
+            
+            # Update self.params with CSV values for parameters that exist in both
+            for key in csv_params:
+                if key in self.params:
+                    # Convert CSV string value to the correct datatype based on config file type
+                    converted_value = self._convert_parameter_type(csv_params[key], self.params[key])
+                    self.params[key] = converted_value
+                    self.logger.info(f"Using parameter value from CSV for {key}: {converted_value}")
+            
             for key, value in self.params.items():
                 try:
                     # The following line will throw an exception if the class variable does not exist
@@ -514,6 +530,99 @@ class ENGELBaseClass(Node):
             self.declare_parameters(namespace=None, parameters=tuple(self.params.items()))
         else:
             self.logger.warning("No parameters specified for this node")
+
+    def _load_parameters_from_csv(self) -> Dict[str, Any]:
+        """
+        Loads the last parameter values for this node from the parameters.csv file in the user's home directory.
+
+        This method reads the CSV file and extracts the most recent parameter values for the current node
+        (matching both namespace and node_name). Only parameters that exist in this node are returned.
+
+        Returns:
+        Dict[str, Any]: A dictionary mapping parameter names to their most recent values from the CSV file.
+                        Returns an empty dictionary if the CSV file doesn't exist or is inaccessible.
+        """
+        try:
+            home_dir = Path.home()
+            csv_file = home_dir / "parameters.csv"
+            
+            if not csv_file.exists():
+                self.logger.debug(f"CSV parameters file not found at {csv_file}")
+                return {}
+            
+            # Dictionary to store the last value for each parameter of this node
+            last_params = {}
+            current_namespace = self.ns if self.ns else "/"
+            current_node_name = self.name
+            
+            # Read the CSV file
+            with open(csv_file, mode='r') as file:
+                reader = csv.DictReader(file)
+                
+                if reader.fieldnames is None:
+                    self.logger.warning(f"CSV file {csv_file} is empty or malformed")
+                    return {}
+                
+                for row in reader:
+                    # Check if this row matches the current node
+                    if (row.get('namespace') == current_namespace and 
+                        row.get('node_name') == current_node_name):
+                        # Store the parameter (last occurrence wins due to file order)
+                        param_name = row.get('parameter_name')
+                        param_value = row.get('parameter_value')
+                        if param_name and param_value is not None:
+                            last_params[param_name] = param_value
+            
+            if last_params:
+                self.logger.info(f"Loaded {len(last_params)} parameters from CSV file")
+            
+            return last_params
+        
+        except Exception as e:
+            self.logger.error(f"Failed to load parameters from CSV: {e}")
+            return {}
+
+    def _convert_parameter_type(self, csv_value: str, config_value: Any) -> Any:
+        """
+        Converts a CSV string value to the correct datatype based on the config file value's type.
+
+        This method infers the target datatype from the original config value and converts the CSV string
+        accordingly. Supported types are: bool, float, and str.
+
+        Parameters:
+        csv_value (str): The string value read from the CSV file.
+        config_value (Any): The original value from the config file (used to determine the target type).
+
+        Returns:
+        Any: The CSV value converted to the appropriate type (bool, float, or str).
+        """
+        try:
+            # If config value is a boolean
+            if isinstance(config_value, bool):
+                # Handle string representations of booleans
+                if csv_value.lower() in ('true', '1', 'yes', 'on'):
+                    return True
+                elif csv_value.lower() in ('false', '0', 'no', 'off'):
+                    return False
+                else:
+                    self.logger.warning(f"Could not convert '{csv_value}' to bool, returning as string")
+                    return csv_value
+            
+            # If config value is a float
+            elif isinstance(config_value, float):
+                return float(csv_value)
+            
+            # If config value is an int
+            elif isinstance(config_value, int):
+                return int(csv_value)
+            
+            # Default to string
+            else:
+                return csv_value
+        
+        except (ValueError, TypeError) as e:
+            self.logger.error(f"Failed to convert CSV value '{csv_value}' to type {type(config_value).__name__}: {e}")
+            return csv_value
 
     def validate_parameters(self) -> bool:
         """
@@ -601,6 +710,7 @@ class ENGELBaseClass(Node):
         This method checks if the parameter exists as an attribute in the class instance.
         If it does, it updates the attribute with the new value from the parameter.
         If the parameter does not exist, it sets the success flag to False.
+        The parameter change is also logged to a CSV file in the user's home directory.
 
         Parameters:
         param (Parameter): The parameter whose value has changed.
@@ -611,10 +721,54 @@ class ENGELBaseClass(Node):
         success = True
         if hasattr(self, param.name):
             setattr(self, param.name, param.value)
+            self._write_parameter_to_csv(param)
         else:
             success = False
-        self.logger.debug(f"Handling {param} value change was successfull: {success}")
+        self.logger.debug(f"Handling {param.name} value change was successfull: {success}")
         return success
+
+    def _write_parameter_to_csv(self, param: Parameter) -> None:
+        """
+        Writes a parameter change to a CSV file in the user's home directory.
+
+        The CSV file is named 'parameters.csv' and includes columns for:
+        - timestamp: When the parameter was changed
+        - namespace: The ROS namespace of the node
+        - node_name: The name of the ROS node
+        - parameter_name: The name of the parameter
+        - parameter_value: The new value of the parameter
+
+        Parameters:
+        param (Parameter): The parameter that was changed.
+        """
+        try:
+            home_dir = Path.home()
+            csv_file = home_dir / "parameters.csv"
+            
+            # Prepare the data
+            timestamp = datetime.now().isoformat()
+            namespace = self.ns if self.ns else "/"
+            node_name = self.name
+            param_name = param.name
+            param_value = param.value
+            
+            # Check if file exists to determine if we need to write headers
+            file_exists = csv_file.exists()
+            
+            # Write to CSV
+            with open(csv_file, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                
+                # Write header if file is new
+                if not file_exists:
+                    writer.writerow(['timestamp', 'namespace', 'node_name', 'parameter_name', 'parameter_value'])
+                
+                # Write data
+                writer.writerow([timestamp, namespace, node_name, param_name, param_value])
+            
+            self.logger.debug(f"Parameter {param.name}={param.value} written to {csv_file}")
+        except Exception as e:
+            self.logger.error(f"Failed to write parameter to CSV: {e}")
     
     def invoke_parameter_change_callback(self, updates: Dict[str, Any]) -> None:
         """Internally invoke the parameter change callback logic.
@@ -637,7 +791,8 @@ class ENGELBaseClass(Node):
 
         if self.set_parameters(params) != [SetParametersResult(successful=True)] * len(params):
             self.logger.error(f"Internal parameter set for {updates} failed")
-    
+
+
     def check_lc_state(self) -> None:
         """React to changes in the life cycle state. Note that this is triggered with a timer and not only on change compared to functions like on_shutdown."""
         if self.lc_state == LcState.PRIMARY_STATE_FINALIZED:

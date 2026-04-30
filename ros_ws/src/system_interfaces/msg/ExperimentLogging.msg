@@ -9,6 +9,7 @@ int8 adaptation_type
 uint8 adaptation_status
 bool success
 float32 iou
+float32 current_success_probability
 float32 vehicle_iou
 float32 road_iou
 string gt_failure_name

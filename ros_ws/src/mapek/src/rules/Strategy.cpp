@@ -1,11 +1,17 @@
 #include "mapek/rules/Strategy.hpp"
 #include "mapek/util/adaptation_utils.hpp"
 
-Strategy::Strategy(std::vector<Adaptation> adaptations, std::string name, std::size_t hash, double success_rate, double system_impact) : adaptations(adaptations),
-                                                                                                                                         name(name),
-                                                                                                                                         hash(hash),
-                                                                                                                                         success_rate(success_rate),
-                                                                                                                                         system_impact(system_impact) {}
+Strategy::Strategy(std::vector<Adaptation> adaptations, std::string name, std::size_t hash, double success_rate, double success_rate_confidence, double system_impact) : 
+    adaptations(adaptations),
+    name(name),
+    hash(hash)
+    {
+        success_rate = std::clamp(success_rate,0.,1.);
+        alpha = success_rate;
+        beta =  1 - alpha;
+        alpha *= success_rate_confidence;
+        beta *= success_rate_confidence;
+    }
 
 // Strategy::Strategy(const Strategy& other):
 //     adaptations(other.adaptations),
@@ -75,7 +81,7 @@ double Strategy::getCost(bool consider_system_impact) const
     if (consider_system_impact)
     {
         // Normalize probability from [0, 100] to [0, 1]
-        double normalizedFailureCost = (100.0 - success_rate) / 100.0;
+        double normalizedFailureCost = (100.0 - 100. * getSuccessRate()) / 100.0;
         // Normalize time from [1, 15] to [0, 1]
         double normalizedTime = (system_impact - 1.0) / adaptations_utils::getAdaptationExecutionEstimate(system_interfaces::msg::AdaptationType::ACTION_REDEPLOY - 1.0);
 
@@ -84,12 +90,17 @@ double Strategy::getCost(bool consider_system_impact) const
     }
     else
     {
-        return 100. - success_rate;
+        return 100. - 100. * getSuccessRate();
     }
 }
 
-// void Strategy::updateSuccessRate(double usr){
-//     success_rate = usr;
+void Strategy::updateSuccessRate(bool successful){
+    if (successful){
+        alpha += 1;
+    }else{
+        beta += 1;
+    }
+}
 
 //     // TODO save to file
 // }
@@ -119,7 +130,7 @@ int Strategy::getExecutionEstimate() const
     int ee = 0;
     for (const auto &adaptation : adaptations)
     {
-        ee = std::max(ee, adaptations_utils::getAdaptationExecutionEstimate(adaptation.getAdaptationType()));
+        ee = std::max(ee, adaptation.getSystemImpact());
     }
     return ee;
 }

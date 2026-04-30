@@ -21,10 +21,11 @@ class CriticalitySelector:
             raise ValueError(f"Criticality level '{criticality}' not found in data.")
 
         elements = self.grouped_data[criticality]
-        probabilities = [element['probability'] for element in elements]
+        #probabilities = [element['probability'] for element in elements]
         
-        # Randomly select an element based on their probabilities
-        selected_element = random.choices(elements, weights=probabilities, k=1)[0]
+        ## Randomly select an element based on their probabilities
+        #selected_element = random.choices(elements, weights=probabilities, k=1)[0]
+        selected_element = elements[0]
         return selected_element
 
 

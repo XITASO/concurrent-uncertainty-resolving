@@ -6,6 +6,8 @@
 #include <mapek/rules/RuleParser.hpp>
 #include <mapek/util/parameter_message_utils.hpp>
 #include "test_utils.hpp"
+#include "mapek/rules/RuleUpdater.hpp"
+#include <cstdlib>
 
 
 TEST(test_engel_rules, test_component_getter){
@@ -231,6 +233,23 @@ TEST(test_engel_rules, test_rule_parsing){
     ASSERT_EQ(rules[0]->getStrategies()[1].getName(), "strat_2");
     ASSERT_EQ(rules[0]->getStrategies()[0].getAdaptations().size(), 2);
     ASSERT_EQ(rules[0]->getStrategies()[1].getAdaptations().size(), 1);
+    ASSERT_NEAR(rules[0]->getStrategies()[0].getSuccessRate(), 0.323, 1e-6);
+    ASSERT_NEAR(rules[0]->getStrategies()[1].getSuccessRate(), 0.677, 1e-6);
+
+    double alpha_s1_expected = 0.323*80;
+    double beta_s1_expected = (1-0.323)*80;
+    auto ab = rules[0]->getStrategies()[0].getBetaDistribution();
+    ASSERT_NEAR(ab.first, alpha_s1_expected, 1e-6);
+    ASSERT_NEAR(ab.second, beta_s1_expected, 1e-6);
+
+    //TODO This seems to be deprecated
+    // // check system impact values are correctly parsed from adaptations
+    // // strat_1 in rule 0: lidar (5) + camera (10) = 15
+    // ASSERT_EQ(rules[0]->getStrategies()[0].getSystemImpact(), 15.0);
+    // // strat_2 in rule 0: segmentation (8)
+    // ASSERT_EQ(rules[0]->getStrategies()[1].getSystemImpact(), 8.0);
+    // // strat_1 in rule 1: lidar (5) + lidar (3) = 8
+    // ASSERT_EQ(rules[1]->getStrategies()[0].getSystemImpact(), 8.0);
 
     // check hash different
     ASSERT_NE(rules[0]->getStrategies()[0].getHash(), rules[0]->getStrategies()[1].getHash());
@@ -241,4 +260,56 @@ TEST(test_engel_rules, test_rule_parsing){
     ASSERT_TRUE(rules[0]->evaluate(value_store));
     ASSERT_FALSE(rules[1]->evaluate(value_store));
 
+}
+
+TEST(test_engel_rules, probability_updating){
+auto value_store = getValueStore();
+    Adaptation adaptation(
+        "component", 
+        0,
+        [](ValueStorePtr){return GenericAdaptation{};}
+    );
+    // Create strategy
+    Strategy s1({adaptation}, "strat1", 1, 0.65, 100);
+    Strategy s2({adaptation}, "strat1", 1, 0.65, 10);
+    Strategy s3({adaptation}, "strat1", 1, 0.57);
+
+    ASSERT_NEAR(s1.getSuccessRate(), 0.65, 1e-6);
+    ASSERT_NEAR(s2.getSuccessRate(), 0.65, 1e-6);
+    ASSERT_NEAR(s3.getSuccessRate(), 0.57, 1e-6);
+
+    auto s1_old = s1.getSuccessRate();
+    auto s2_old = s2.getSuccessRate();
+
+    s1.updateSuccessRate(true);
+    s2.updateSuccessRate(true);
+
+    // updated positive, so success rate should increase
+    ASSERT_GT(s1.getSuccessRate(), s1_old);
+    ASSERT_GT(s2.getSuccessRate(), s2_old);
+
+    // s1 has more confidence, so it should have changed less
+    ASSERT_GT(s2.getSuccessRate(), s1.getSuccessRate());
+
+}
+
+TEST(test_engel_rules, probability_updating_in_file){
+    // fresh file
+    auto value_store = getValueStore();
+    RuleParser parser(value_store);
+    std::system("cp ./tests/test_rules.txt ./tests/test_rules_changing.txt");
+    auto rules = parser.parse("./tests/test_rules_changing.txt");
+    ASSERT_NEAR(rules[0]->getStrategies()[0].getSuccessRate(), 0.323, 1e-6);
+
+    // change prob
+    double alpha = 10;
+    double beta = 30;
+    updateProbabilityInFile("./tests/test_rules_changing.txt", "myRule1", "strat_1", {alpha, beta});
+
+    // reread file, and check
+    rules = parser.parse("./tests/test_rules_changing.txt");
+    ASSERT_NEAR(rules[0]->getStrategies()[0].getSuccessRate(), 0.25, 1e-6);
+    auto ab = rules[0]->getStrategies()[0].getBetaDistribution();
+    ASSERT_NEAR(ab.first, 10, 1e-6);
+    ASSERT_NEAR(ab.second, 30, 1e-6);
 }

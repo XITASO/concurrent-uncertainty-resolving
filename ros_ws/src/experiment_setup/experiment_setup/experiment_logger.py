@@ -37,13 +37,13 @@ class ExperimentLoggerNode(ENGELBaseClass):
 
         super().__init__(node_name, comm_types, config_file)
 
-        self.trigger_configure()
-        self.trigger_activate()
-
-        start = os.environ.get("START_TIME")
         consider_dependencies = os.environ.get("CONSIDER_DEPENDENCIES", "false")
         consider_criticality_level = os.environ.get("CONSIDER_CRITICALITY_LEVEL", "false")
         consider_cost_function = os.environ.get("CONSIDER_COST_FUNCTION", "false")
+
+
+        self.trigger_configure()
+        self.trigger_activate()
 
         # Define data for logging
         self.columns = [
@@ -58,13 +58,14 @@ class ExperimentLoggerNode(ENGELBaseClass):
             "adaptation_status",
             "success",
             "iou",
+            "current_success_probability",
             "vehicle_iou",
             "road_iou",
             "gt_failure_name",
             "is_gt_failure",
         ]
         self.logged_data = [",".join(self.columns)]
-        #self.logged_data.append(",".join([start] * len(self.columns)))
+        self.log_dir = os.path.join("/home/dockuser/ros_ws/log_dump")
         managed_systems = "settings"
         if consider_dependencies is not None and consider_criticality_level is not None and consider_cost_function is not None:
            deps = "_deps" if consider_dependencies.lower() == 'true' else ''
@@ -72,6 +73,7 @@ class ExperimentLoggerNode(ENGELBaseClass):
            cost = "_cost" if consider_cost_function.lower() == 'true' else ''
            managed_systems += deps + crit + cost
         self.log_dir = os.path.join("/home/dockuser/ros_ws/log_dump", managed_systems)
+
         
         os.makedirs(self.log_dir, exist_ok=True)
         self.timer = self.create_timer(self.csv_write_time_period, self._write_to_csv)
@@ -86,6 +88,7 @@ class ExperimentLoggerNode(ENGELBaseClass):
         """
         new_data = []
         current_scenario = str(getattr(log_msg, "scenario", "") or "").strip()
+        self.logger.debug(f"Logger callback: {self.log_file_path}")
 
         create_or_rotate = False
         if current_scenario:
@@ -116,7 +119,7 @@ class ExperimentLoggerNode(ENGELBaseClass):
     def _write_to_csv(self) -> None:
         """Write the current logs to a csv file."""
 
-        #self.logger.info(f"Wrote file to {self.log_file_path}")
+        self.logger.info(f"Wrote file to {self.log_file_path}")
 
         if self.log_file_path is None:
             return

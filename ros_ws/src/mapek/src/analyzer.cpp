@@ -1,8 +1,10 @@
 #include <mapek/analyzer.hpp>
 #include <iostream>
 #include <mapek/util/logger.hpp>
+#include <mapek/rules/RuleUpdater.hpp>
 #include <system_interfaces/msg/experiment_logging.hpp>
 #include <system_interfaces/msg/strategy_status.hpp>
+#include <cstdlib>
 
 void setHealthStatus(const RulePtr rule, MAPEK_Graph &graph){
     for (const auto &strategy : rule->getStrategies()){
@@ -22,8 +24,21 @@ void resetHealthStatus(const RulePtr rule, MAPEK_Graph &graph){
     }
 }
 
-Analyzer::Analyzer(std::vector<RulePtr> rules) : rules(rules){
+Analyzer::Analyzer(std::vector<RulePtr> rules, std::string rule_file) : 
+    rules(rules),
+    rule_file(rule_file){
     logger = BTLogger::get_global_logger();
+    
+    // Read environment variable to determine if success rates and probabilities should be updated
+    // Default is true if not set
+    const char* env_var = std::getenv("MAPEK_UPDATE_RATES_PROBABILITIES");
+    if (env_var == nullptr) {
+        update_success_rates_and_probabilities = false;
+    } else {
+        std::string env_value(env_var);
+        update_success_rates_and_probabilities = (env_value == "1" || env_value == "true" || env_value == "TRUE");
+    }
+    std::cout << "Analyzer initialized with update_success_rates_and_probabilities = " << std::boolalpha << update_success_rates_and_probabilities << std::endl;
 }
 
 using StrategyStatus = system_interfaces::msg::StrategyStatus;
@@ -42,7 +57,7 @@ void Analyzer::analyze(
 
     //2. loop over all existing rules, evaluate and decide what to de depending on wether the rule is currently processed
     // process tried _strats
-    for (const auto & strat : executed_strategies){
+    for (auto & strat : executed_strategies){
         //find corresponding rule and strat
         bool found_rule = false; 
         for(const auto & rule :rules_sent_to_planning){
@@ -52,7 +67,7 @@ void Analyzer::analyze(
                     // mark strat OF RULE as marked
                     rule_strat.markAsTried();
                     found_rule = true;
-                    last_executed_strategy[rule] = strat;
+                    last_executed_strategy[rule] = &rule_strat;
                     break;
                 }  
             }
@@ -115,11 +130,36 @@ void Analyzer::analyze(
                 msg->rule_name = rule->getName();
                 msg->success = false;
                 if (last_executed_strategy.count(rule)){
-                    msg->strategy_name = last_executed_strategy[rule].getName();
-                    msg->strategy_hash = last_executed_strategy[rule].getHash();
+                    msg->strategy_name = last_executed_strategy[rule]->getName();
+                    msg->strategy_hash = last_executed_strategy[rule]->getHash();
                 }
                 msg->strategy_status = StrategyStatus::STATUS_STRATEGY_FINISHED_UNSUCCESSFUL;
-                logger->silent_global(msg);
+                
+                if (update_success_rates_and_probabilities) {
+                    last_executed_strategy[rule]->updateSuccessRate(false);
+                    if (rule_file != ""){
+                        updateProbabilityInFile(rule_file, rule->getName(), last_executed_strategy[rule]->getName(), last_executed_strategy[rule]->getBetaDistribution());
+                    }
+                }
+
+                
+                msg->current_success_probability = last_executed_strategy[rule]->getSuccessRate();logger->silent_global(msg);
+
+                // This is for safety:
+                // Sometimes we miss a rule being resolved. 
+                // If this happens we run in a softlock, since we will never try another strategy
+                // so if the strat did not work, but we have already tried everything, reset 
+                
+                bool all_strats_tried = true;
+                for (const auto & s : rule->getStrategies()){
+                    if (!s.didWeTryThis()){
+                        all_strats_tried = false;
+                    }
+                }
+                if (all_strats_tried){
+                    //std::cout<<"nothing worked resetting strats"<<std::endl;
+                    //rule->reset();
+                }
 
                 rules_sent_to_planning.emplace(rule);
                 adapted_rules.erase(rule);
@@ -146,10 +186,18 @@ void Analyzer::analyze(
                     msg->rule_name = rule->getName();
                     msg->success = true;
                     if (last_executed_strategy.count(rule)){
-                        msg->strategy_name = last_executed_strategy[rule].getName();
-                        msg->strategy_hash = last_executed_strategy[rule].getHash();
+                        msg->strategy_name = last_executed_strategy[rule]->getName();
+                        msg->strategy_hash = last_executed_strategy[rule]->getHash();
                     }
                     msg->strategy_status = StrategyStatus::STATUS_STRATEGY_FINISHED_SUCCESSFUL;
+                    if (update_success_rates_and_probabilities) {
+                        last_executed_strategy[rule]->updateSuccessRate(true);
+                        if (rule_file != ""){
+                            updateProbabilityInFile(rule_file, rule->getName(), last_executed_strategy[rule]->getName(), last_executed_strategy[rule]->getBetaDistribution());
+                        }
+                    }
+
+                    msg->current_success_probability = last_executed_strategy[rule]->getSuccessRate();
                     logger->silent_global(msg);
                 }
             }
@@ -167,9 +215,11 @@ void Analyzer::analyze(
                     msg->rule_name = rule->getName();
                     msg->success = true;
                     if (last_executed_strategy.count(rule)){
-                        msg->strategy_name = last_executed_strategy[rule].getName();
-                        msg->strategy_hash = last_executed_strategy[rule].getHash();
+                        msg->strategy_name = last_executed_strategy[rule]->getName();
+                        msg->strategy_hash = last_executed_strategy[rule]->getHash();
                     }
+                    // No strat --> No success prob
+                    msg->current_success_probability = -1;
                     msg->strategy_status = StrategyStatus::STATUS_NO_STRATEGY_SUCCESSFUL;
                     logger->silent_global(msg);
                 }

@@ -6,13 +6,14 @@
 #include <unordered_map>
 #include <map>
 #include <mapek/util/graph.hpp>
+#include <system_interfaces/msg/set_blackboard_group.hpp>
 
 class SystemAnalyzer : public rclcpp::Node
 {
 public:
     SystemAnalyzer(std::vector<std::pair<std::string, std::string>>& needed_nodes, std::vector<std::pair<std::string, std::string>> & blacklisted_nodes);
     MAPEK_Graph get_graph();   
-    void update_graph(MAPEK_Graph &graph);
+    void update_graph(MAPEK_Graph &graph, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg);
 
 private:
     std::vector<std::pair<std::string, std::string>> present_nodes;

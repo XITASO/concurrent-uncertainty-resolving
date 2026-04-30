@@ -267,7 +267,7 @@ int main(int argc, char** argv)
     // ASSERT_EQ(triggered_rules.size(), 0);
     analyzer.analyze(value_store, executed_strats, triggered_rules, graph);    
     // ASSERT_EQ(triggered_rules.size(), 1);
-    bool mb = triggered_rules[0]->getStrategies()[1].didWeTryThis();
+    //bool mb = triggered_rules[0]->getStrategies()[1].didWeTryThis();
     // ASSERT_TRUE(triggered_rules[0]->getStrategies()[1].didWeTryThis());
     // // ASSERT_EQ(triggered_rules[0]->getStrategies()[1].getName(), "strat1");
 

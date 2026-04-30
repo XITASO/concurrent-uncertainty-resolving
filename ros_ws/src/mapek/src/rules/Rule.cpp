@@ -44,13 +44,6 @@ std::optional<std::vector<Strategy>> Rule::execute(ValueStorePtr value_store) co
 }
 
 bool Rule::sanityCheck(){
-    double summed_success {};
-    for (const auto& strategy : strategies){
-       summed_success += strategy.getSuccessRate();
-    }
-    if (std::abs(summed_success - 100.) > 0.1)
-        return false;
-
     if (filter_policy.n > filter_policy.of)
         return false;
 

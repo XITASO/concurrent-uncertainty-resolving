@@ -29,9 +29,9 @@ MAPEK_Graph Monitoring::get_initial_graph()
   return analyzer->get_graph();
 }
 
-void Monitoring::update_dependencies_in_graph(MAPEK_Graph &graph)
+void Monitoring::update_dependencies_in_graph(MAPEK_Graph &graph, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg)
 {
-  analyzer->update_graph(graph);
+  analyzer->update_graph(graph, msg);
 }
 
 void Monitoring::update_key_value_storage(ValueStorePtr random_value_blackboard, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg)

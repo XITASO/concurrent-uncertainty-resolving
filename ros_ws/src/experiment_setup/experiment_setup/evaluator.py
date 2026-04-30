@@ -47,10 +47,14 @@ class EvaluatorNode(ENGELBaseClass):
                     the params.yaml file has to be a class member of {self.get_name()}"
             )
 
+        # Extended data buffer to hold messages with timestamps
+        # Structure: {"gt": [(Image, timestamp), ...], "pred": [(Image, timestamp), ...]}
         self.buffer = {"gt": [], "pred": []}
+        self.max_buffer_size = 20  # Number of messages to keep per modality
+        self.last_published_timestamps = {"gt": -1.0, "pred": -1.0}  # Track published timestamps to avoid duplicates
         self.bridge = CvBridge()
         self.segmenter = UAVidSegmenter()
-        self.device = "cuda:2" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def gt_callback(self, msg: Image) -> None:
         self._add_to_buffer("gt", msg)
@@ -60,25 +64,84 @@ class EvaluatorNode(ENGELBaseClass):
 
     def _add_to_buffer(self, key: str, msg: Image) -> None:
         """
-        Adds the image message to the appropriate buffer and checks for paired messages.
+        Adds the image message to the appropriate buffer with timestamp and checks for paired messages.
 
         Parameters:
         key (str): The key of the buffer to add the message to, either "gt" or "pred".
         msg (Image): The image message to add to the buffer.
         """
-        if len(self.buffer[key]) > self.max_buffer_length:
-            del self.buffer[key][0]
         timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
-        self.buffer[key].append([msg, timestamp])
+        
+        # Add new message to buffer
+        self.buffer[key].append((msg, timestamp))
+        
+        # Keep only the most recent max_buffer_size messages
+        if len(self.buffer[key]) > self.max_buffer_size:
+            self.buffer[key].pop(0)
 
-        paired_key = "pred" if key == "gt" else "gt"
-        paired_msg = self._check_buffer_for_pairs(paired_key, timestamp)
-
-        if paired_msg is not None:
-            data = {paired_key: paired_msg, key: msg}
-            iou_dict = self._calculate_metrics(**data)
-
+        self.get_logger().debug(f"Received {key} message with time {timestamp}. Buffer size: {len(self.buffer[key])}")
+        
+        # Try to find a matching pair
+        best_match = self._find_closest_match()
+        if best_match is not None:
+            gt_msg, pred_msg = best_match
+            iou_dict = self._calculate_metrics(gt=gt_msg, pred=pred_msg)
             self._publish_results(msg, iou_dict)
+
+    def _find_closest_match(self) -> Optional[tuple]:
+        """
+        Finds the closest matching gt and prediction image pair based on timestamps.
+        Only returns a match if it hasn't been published before.
+
+        Returns:
+        tuple: A tuple of (gt_image, pred_image) or None if no valid match found.
+        """
+        if not self.buffer["gt"] or not self.buffer["pred"]:
+            return None
+        
+        best_match = None
+        min_delta = float('inf')
+        best_gt_idx = -1
+        best_pred_idx = -1
+        best_gt_time = -1.0
+        best_pred_time = -1.0
+        
+        # Find the pair with minimum timestamp difference
+        for gt_idx, (gt_img, gt_time) in enumerate(self.buffer["gt"]):
+            for pred_idx, (pred_img, pred_time) in enumerate(self.buffer["pred"]):
+                delta = abs(gt_time - pred_time)
+                
+                # Check if this pair is within threshold and has minimum delta
+                if delta <= self.delta_t_threshold and delta < min_delta:
+                    # Avoid publishing the same pair twice
+                    if not (gt_time == self.last_published_timestamps["gt"] and 
+                            pred_time == self.last_published_timestamps["pred"]):
+                        min_delta = delta
+                        best_match = (gt_img, pred_img)
+                        best_gt_idx = gt_idx
+                        best_pred_idx = pred_idx
+                        best_gt_time = gt_time
+                        best_pred_time = pred_time
+        
+        if best_match is not None:
+            self.get_logger().debug(
+                f"Found closest match with delta_t = {min_delta:.6f}s (GT: {best_gt_time:.3f}, Pred: {best_pred_time:.3f})"
+            )
+            # Update last published timestamps
+            self.last_published_timestamps["gt"] = best_gt_time
+            self.last_published_timestamps["pred"] = best_pred_time
+            
+            # Remove the matched pair from buffers to avoid reprocessing
+            # Pop higher index first to avoid index shifting
+            if best_gt_idx >= 0 and best_pred_idx >= 0:
+                if best_pred_idx > best_gt_idx:
+                    self.buffer["pred"].pop(best_pred_idx)
+                    self.buffer["gt"].pop(best_gt_idx)
+                else:
+                    self.buffer["gt"].pop(best_gt_idx)
+                    self.buffer["pred"].pop(best_pred_idx)
+        
+        return best_match
 
     def _check_buffer_for_pairs(self, key: str, timestamp: float) -> Optional[Image]:
         """
@@ -97,6 +160,7 @@ class EvaluatorNode(ENGELBaseClass):
         if np.min(delta_ts) < self.delta_t_threshold:
             idx = np.argmin(delta_ts)
             return self.buffer[key].pop(idx)[0]
+        self.get_logger().info("Didn't find a match")
         return None
 
     def _calculate_metrics(self, gt: Image, pred: Image) -> Dict[str, float]:

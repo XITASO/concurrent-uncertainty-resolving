@@ -2,6 +2,7 @@
 #include <mapek/util/logger.hpp>
 #include <system_interfaces/msg/experiment_logging.hpp>
 #include <system_interfaces/msg/strategy_status.hpp>
+#include <lifecycle_msgs/msg/state.hpp>
 
 Planning::Planning()
 {
@@ -67,6 +68,64 @@ std::map<std::string, VectorGenericAdaptations> Planning::convertStrategiesToGen
     return all_adaptations;
 }
 
+bool Planning::validateStrategy(const MAPEK_Graph & system_graph, Strategy strategy)
+{
+    const auto& adaptations = strategy.getAdaptations();
+    
+    for (const auto& adaptation : adaptations)
+    {
+        const auto& component = adaptation.getComponent();
+        const auto& adaptation_type = adaptation.getAdaptationType();
+        
+        // Get the lifecycle state of the component from the graph
+        auto node_iter = system_graph.nodes()->find(component);
+        if (node_iter == system_graph.nodes()->end())
+        {
+            // Component not found in graph, cannot validate
+            continue;
+        }
+        
+        const auto& graph_node = node_iter->second;
+        uint8_t current_lifecycle_state = graph_node.lifecycle_state();
+        
+        // Check if the adaptation is worth trying based on the node's lifecycle state
+        // AdaptationType values from system_interfaces/msg/AdaptationType.msg:
+        // ACTION_ACTIVATE = 1
+        // ACTION_DEACTIVATE = 2
+        // ACTION_RESTART = 3
+        // ACTION_REDEPLOY = 4
+        
+        if (adaptation_type == system_interfaces::msg::AdaptationType::ACTION_ACTIVATE)
+        {
+            // Activation is not worth trying if the node is already active
+            // Primary state ACTIVE = 3
+            if (current_lifecycle_state == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+            {
+                return false;
+            }
+        }
+        else if (adaptation_type == system_interfaces::msg::AdaptationType::ACTION_DEACTIVATE)
+        {
+            // Deactivation is not worth trying if the node is already inactive or lower
+            // Primary state INACTIVE = 2, UNCONFIGURED = 1, UNKNOWN = 0
+            if (current_lifecycle_state <= lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+            {
+                return false;
+            }
+        }
+        else if (adaptation_type == system_interfaces::msg::AdaptationType::ACTION_RESTART)
+        {
+            // Restart is not worth trying if the node is already inactive or lower
+            if (current_lifecycle_state <= lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+            {
+                return false;
+            }
+        }
+    }
+    
+    return true;
+}
+
 using StrategyStatus = system_interfaces::msg::StrategyStatus; // alias to generated msg constants
 std::vector<Strategy> Planning::selectStrategiesBasedOnCriticalityLevel(const std::vector<RulePtr> &rules, const MAPEK_Graph &system_graph, uint8_t criticality_level)
 {
@@ -95,6 +154,9 @@ std::vector<Strategy> Planning::selectStrategiesBasedOnCriticalityLevel(const st
     {
         bool canSelectStrategy = true;
         if (strategy.didWeTryThis())
+            continue;
+
+        if (validateStrategy(system_graph, strategy) == false)
             continue;
 
         // Check if any of the nodes affected by this strategy have a dependency with a higher health status

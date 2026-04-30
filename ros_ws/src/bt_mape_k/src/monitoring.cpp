@@ -23,15 +23,16 @@ NodeStatus BTMonitoring::onTick(const std::shared_ptr<system_interfaces::msg::Se
   // Convert the time to milliseconds
   long long current_time_ms = current_time.nanoseconds();
   setOutput("clock", current_time_ms);
-  MAPEK_Graph graph = getInput<MAPEK_Graph>("system_state_graph").value();
-  mapek_monitoring->update_dependencies_in_graph(graph);
-  setOutput("sytem_state_graph", graph);
+
 
   if (!msg) // empty if no new message received, since the last tick
   {
     return BT::NodeStatus::SUCCESS;
   }
 
+  MAPEK_Graph graph = getInput<MAPEK_Graph>("system_state_graph").value();
+  mapek_monitoring->update_dependencies_in_graph(graph, msg);
+  setOutput("sytem_state_graph", graph);
   ValueStorePtr random_value_blackboard = getInput<ValueStorePtr>("value_store").value();
   mapek_monitoring->update_key_value_storage(random_value_blackboard, msg);
   setOutput("value_store", random_value_blackboard);

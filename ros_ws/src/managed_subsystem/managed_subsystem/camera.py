@@ -38,40 +38,88 @@ class CameraNode(ENGELBaseClass):
         )
         self.image_degradation = None
         self.image_mean_threshold = None
-        self.do_drop_rgb_camera = None # should resolve after restart
-        self.do_hard_drop_rgb_camera = None # should resolve after redeploy
+        self.camera_driver_issue = None # should resolve after restart
+        self.hardware_disconnect = None # should resolve after redeploy
         self.autofocus_needed = None
         self.perform_autofocus = None
+        self.lifecycle_activation_delay = None
         super().__init__(
             node_name, comm_types, config_file
         )
 
-        self.trigger_configure()
-        self.trigger_activate()
-
         self.bridge = CvBridge()
         self.reset_timer = None  # Timer for resetting image_degradation
-
-        
+        self._activation_timer = None  # Timer for delayed activation
+        self._activation_delay_s = 0.0
 
         if not self.validate_parameters():
             self.logger.warn(
                 f"Not all parameters are initialized correctly. Every parameter in \
                     the params.yaml file has to be a class member of {self.get_name()}"
             )
+        
+        # Trigger lifecycle transitions after initialization
+        self.trigger_configure()
     
     def on_configure(self, state: LifecycleState):
-        time.sleep(1)
-        return super().on_configure(state)
-
-    def on_activate(self, state: LifecycleState):
-        self.invoke_parameter_change_callback(
-            {
-                "do_drop_rgb_camera": False,
-                "image_degradation": 0,
-            }
+        """Configure the node - called before activation."""
+        # Schedule activation with a delay specified in parameters
+        self._activation_delay_s = float(
+            self.lifecycle_activation_delay if self.lifecycle_activation_delay is not None else 5.0
         )
 
+        if self._activation_timer is not None:
+            self._activation_timer.cancel()
+            self._activation_timer = None
+
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns == 0:
+            self._activation_timer = self.create_timer(0.1, self._wait_for_valid_clock_and_arm_activation)
+            self.get_logger().info(
+                f"Node configured, waiting for first sim clock tick before applying activation delay of {self._activation_delay_s} seconds"
+            )
+        else:
+            self._activation_timer = self.create_timer(self._activation_delay_s, self._trigger_activation)
+            self.get_logger().info(
+                f"Node configured, there is a simulated delay of {self._activation_delay_s} seconds"
+            )
+        self.invoke_parameter_change_callback(
+            {
+                "hardware_disconnect": False,
+            }
+        )
+        return super().on_configure(state)
+
+    def _wait_for_valid_clock_and_arm_activation(self):
+        """Wait until ROS time starts, then arm the real activation delay timer."""
+        if self.get_clock().now().nanoseconds == 0:
+            return
+
+        if self._activation_timer is not None:
+            self._activation_timer.cancel()
+            self._activation_timer = None
+
+        self._activation_timer = self.create_timer(self._activation_delay_s, self._trigger_activation)
+        self.get_logger().info(
+            f"First sim clock tick received, activation will be triggered after {self._activation_delay_s} seconds"
+        )
+
+    def _trigger_activation(self):
+        """Callback to trigger activation after delay."""
+        if self._activation_timer is not None:
+            self._activation_timer.cancel()
+            self._activation_timer = None
+        # Trigger the activation transition
+        self.trigger_activate()
+
+    def on_activate(self, state: LifecycleState):
+        """Activate the node and handle initialization."""
+        # Invoke parameter change callback immediately
+        self.invoke_parameter_change_callback(
+            {
+                "camera_driver_issue": False,
+            }
+        )
         return super().on_activate(state)
 
     def raw_rgb_callback(self, msg: Image) -> None:
@@ -102,7 +150,7 @@ class CameraNode(ENGELBaseClass):
             self.start_reset_timer()
         
         # drop the image
-        if self.do_drop_rgb_camera or self.do_hard_drop_rgb_camera:
+        if self.camera_driver_issue or self.hardware_disconnect:
 
             #self.logger.info(
             #    f"Dropped msg {msg.header.frame_id} at time {msg.header.stamp.sec+msg.header.stamp.nanosec/1e9:0.3}"
@@ -158,10 +206,11 @@ class CameraNode(ENGELBaseClass):
         """
         Starts a timer to reset image_degradation to 0.0 after 2 seconds.
         """
-        self.reset_timer = self.create_timer(
-            20.0,  # Duration: 2 seconds
-            self.reset_image_degradation  # Callback function
-        )
+        pass
+        #self.reset_timer = self.create_timer(
+        #    20.0,  # Duration: 2 seconds
+        #    self.reset_image_degradation  # Callback function
+        #)
 
     def reset_image_degradation(self):
         """
@@ -172,7 +221,6 @@ class CameraNode(ENGELBaseClass):
                 "image_degradation": 0.0,
             }
         )
-
         self.reset_timer.cancel()
         self.reset_timer = None
         self.logger.info("Image degradation has been reset to 0.0")

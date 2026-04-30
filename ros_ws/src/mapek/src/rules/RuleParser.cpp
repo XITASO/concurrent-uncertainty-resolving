@@ -29,7 +29,7 @@ std::vector<RulePtr> RuleParser::parse(std::string path) const{
     file.open(path); 
 
     if (!file.is_open())
-        throw std::runtime_error( "did not find file at: "+ path);
+        throw std::runtime_error( "rule parser did not find file at: "+ path);
 
     std::string line;
 
@@ -224,8 +224,8 @@ Strategy RuleParser::parse_strategy(std::ifstream* file, const std::string & rul
     current_rule_all_string += line;
 
     auto strategy_def_words = string_utils::split(line);
-    if (strategy_def_words.size()!=3){
-        throw std::runtime_error( "expected three words words for strategy: keyword 'STRATEGY', name, and success rate");
+    if (strategy_def_words.size()!=4){
+        throw std::runtime_error( "expected four words words for strategy: keyword 'STRATEGY', name,  success rate, and success rate confidence");
     }
 
     if (strategy_def_words[0] != "STRATEGY"){
@@ -238,19 +238,27 @@ Strategy RuleParser::parse_strategy(std::ifstream* file, const std::string & rul
     if (!string_utils::to_double(strategy_def_words[2], success_rate)){
         throw std::runtime_error("Third entry of strategy (success rate) must be double!");
     }
+    success_rate/=100.;
+
+    double success_rate_confidence{};
+    if (!string_utils::to_double(strategy_def_words[3], success_rate_confidence)){
+        throw std::runtime_error("Fourth entry of strategy (success rate confidence) must be double!");
+    }
+    
 
     std::vector<Adaptation> adaptations;
-    double system_impact = 0.0;
+    int system_impact = 0;
     while(string_utils::read_word(string_utils::peekLine(file)).first == "ADAPTATION"){        
         if (!std::getline(*file, line)) throw std::runtime_error( "unexpected file ending");        
         Adaptation current_adaptation = parse_adaptation(line);
         adaptations.push_back(current_adaptation);
         def_string+=line;
         current_rule_all_string += line;
-        system_impact += adaptations_utils::getAdaptationExecutionEstimate(current_adaptation.getAdaptationType());
+        // Sum up explicit system impact values from adaptations
+        system_impact += current_adaptation.getSystemImpact();
     }
     std::cout<<"parsed Strategy"<<std::endl;
-    return Strategy(adaptations, s_name, hasher(def_string), success_rate, system_impact);
+    return Strategy(adaptations, s_name, hasher(def_string), success_rate, success_rate_confidence, system_impact);
 }
 
 std::vector<Strategy> RuleParser::parse_strategies(std::ifstream* file, const std::string & rule_name) const{
@@ -262,26 +270,53 @@ std::vector<Strategy> RuleParser::parse_strategies(std::ifstream* file, const st
 }
 
 /**
- * @brief Parses the fourth line of the rule
+ * @brief Parses the adaptation line
  * 
  * Parses the Adaptation to trigger, using the adaptation factory
- * Reads the string and expects 2 or 4 words:
- * first word: keyword THEN
- * second word: adaptation type
- * third + fourth word: adaptation specification 
+ * The line format is: ADAPTATION <type> <args...> [system_impact]
+ * The last word is treated as system_impact if it's a number, otherwise system_impact defaults to 0
  * 
  * @param line the string to parse
  * 
- * @throws Runtime exception If first word is not keyword "THEN"
+ * @throws Runtime exception If first word is not keyword "ADAPTATION"
  * 
- * @returns Adaptaion generating function
+ * @returns Adaptation object with system impact
  * 
  */
 Adaptation RuleParser::parse_adaptation(std::string line) const{
     auto wr = string_utils::read_word(line);
     if (wr.first != "ADAPTATION"){
-        throw std::runtime_error( "read unexpected Line \n "  + line + "\nExpected Keyword 'THEN'");
+        throw std::runtime_error( "read unexpected Line \n "  + line + "\nExpected Keyword 'ADAPTATION'");
     }
-    return adaptation_factory.produce(wr.second);
+    
+    // Extract all words from the remaining line
+    auto words = string_utils::split(wr.second);
+    int system_impact = 0;
+    
+    // Check if the last word is a number (system impact)
+    if (!words.empty()){
+        int potential_impact;
+        if (string_utils::to_int(words.back(), potential_impact)){
+            // Last word is a number, use it as system impact
+            system_impact = potential_impact;
+            // Remove the last word from the words vector for adaptation factory
+            words.pop_back();
+        }
+    }
+    
+    // Reconstruct the line for adaptation factory (without the system impact)
+    std::string adaptation_line = "";
+    for (size_t i = 0; i < words.size(); ++i){
+        if (i > 0) adaptation_line += " ";
+        adaptation_line += words[i];
+    }
+    
+    // The adaptation factory expects the line without ADAPTATION keyword
+    auto adaptation = adaptation_factory.produce(adaptation_line);
+    
+    // Create a new Adaptation with the explicit system impact
+    return Adaptation(adaptation.getComponent(), adaptation.getAdaptationType(), 
+                      [adaptation](ValueStorePtr vs){ return adaptation.getAdaptation(vs); },
+                      system_impact);
 }
 

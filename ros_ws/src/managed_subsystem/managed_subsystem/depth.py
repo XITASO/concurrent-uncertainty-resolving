@@ -12,6 +12,7 @@ from python_base_class.engel_base_class import ENGELBaseClass
 from managed_subsystem.config.depth_config import comm_types
 
 from ament_index_python.packages import get_package_share_directory
+from rclpy.lifecycle import LifecycleState
 
 
 class DepthNode(ENGELBaseClass):
@@ -34,11 +35,11 @@ class DepthNode(ENGELBaseClass):
         )
         self.depth_degradation = None
         self.do_drop_depth_camera = None
+        self.lifecycle_activation_delay = None
         super().__init__(node_name, comm_types, config_file)
 
-
+        self._activation_timer = None  # Timer for delayed activation
         self.trigger_configure()
-        self.trigger_activate()
 
         self.bridge = CvBridge()
 
@@ -47,6 +48,22 @@ class DepthNode(ENGELBaseClass):
                 f"Not all parameters are initialized correctly. Every parameter in \
                     the params.yaml file has to be a class member of {self.get_name()}"
             )
+
+    def on_configure(self, state: LifecycleState):
+        """Configure the node - called before activation."""
+        # Schedule activation with a delay specified in parameters
+        delay = self.lifecycle_activation_delay if self.lifecycle_activation_delay is not None else 5.0
+        self._activation_timer = self.create_timer(delay, self._trigger_activation)
+        self.get_logger().info(f"Node configured, there is a simulated delay of {delay} seconds")
+        return super().on_configure(state)
+
+    def _trigger_activation(self):
+        """Callback to trigger activation after delay."""
+        if self._activation_timer is not None:
+            self._activation_timer.cancel()
+            self._activation_timer = None
+        # Trigger the activation transition
+        self.trigger_activate()
 
     def depth_callback(self, msg: Image) -> None:
         """
@@ -94,26 +111,6 @@ class DepthNode(ENGELBaseClass):
         msg_new.header = msg.header
         return msg_new
     
-    def flight_phase_callback(self, flight_phase_msg: Flightphase):
-        """
-        Degreade the depth quality, if the flight-phase indicates a high altitude.
-        
-        Parameters:
-        flight_phase_msg (Flightphase): The current flightphase published by the flight phase assistant.
-        """
-        if flight_phase_msg.flightphase in [Flightphase.APPROACH, Flightphase.FINAL_APPROACH, Flightphase.LANDING, Flightphase.DESCENT]:
-            self.invoke_parameter_change_callback(
-            {
-                "depth_degradation": 0.0,
-            }
-        )
-        else:
-            self.invoke_parameter_change_callback(
-            {
-                "depth_degradation": 1.0,
-            }
-        )
-
 def main() -> None:
     """
     The main function to initialize and spin the DepthNode.

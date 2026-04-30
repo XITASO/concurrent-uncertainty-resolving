@@ -16,9 +16,10 @@ public:
     std::vector<Strategy> selectStrategies(const std::vector<RulePtr>& rules, const MAPEK_Graph& system_graph);
     std::map<std::string, VectorGenericAdaptations> convertStrategiesToGenericAdaptations(std::vector<Strategy> strategies, ValueStorePtr value_store);
     std::vector<Strategy> selectStrategiesBasedOnCriticalityLevel(const std::vector<RulePtr>& rules, const MAPEK_Graph& system_graph, uint8_t criticality_level);
-    const bool getConsiderDependencies() {return _consider_dependencies;}
-    const bool getConsiderCriticalityLevel() {return _consider_criticality_level;}
-    const bool getConsiderCostFunction() {return _consider_cost_function;}
+    bool validateStrategy(const MAPEK_Graph & system_graph, Strategy strategy);
+    bool getConsiderDependencies() const {return _consider_dependencies;}
+    bool getConsiderCriticalityLevel() const {return _consider_criticality_level;}
+    bool getConsiderCostFunction() const {return _consider_cost_function;}
     void reset();
     std::shared_ptr<BTLogger> logger;
 private:

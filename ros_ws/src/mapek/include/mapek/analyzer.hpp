@@ -8,7 +8,8 @@
 
 class Analyzer{
     public:
-        Analyzer(std::vector<RulePtr> rules);
+        // if rules path is given, i.e. not "" we update probabilities to file
+        Analyzer(std::vector<RulePtr> rules, std::string rule_file = "");
 
         std::shared_ptr<BTLogger> logger;
         void analyze(
@@ -19,8 +20,11 @@ class Analyzer{
         );
 
     private:
+        std::string rule_file;
+        bool update_success_rates_and_probabilities;
+
         std::vector<RulePtr> rules;
         std::unordered_set<RulePtr> rules_sent_to_planning;
         std::unordered_map<RulePtr, int> adapted_rules;
-        std::unordered_map<RulePtr, Strategy> last_executed_strategy;
+        std::unordered_map<RulePtr, Strategy*> last_executed_strategy;
 };

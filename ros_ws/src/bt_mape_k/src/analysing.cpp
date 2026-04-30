@@ -16,7 +16,7 @@ AnalysisDecorator::AnalysisDecorator(
 
         auto value_store = getBBValue<ValueStorePtr>("value_store");
         RuleParser parser(value_store);
-        analyzer = std::make_shared<Analyzer>(parser.parse(rules_path));
+        analyzer = std::make_shared<Analyzer>(parser.parse(rules_path), rules_path);
         
     }
 

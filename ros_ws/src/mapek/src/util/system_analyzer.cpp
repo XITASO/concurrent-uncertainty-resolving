@@ -215,9 +215,46 @@ MAPEK_Graph SystemAnalyzer::get_graph()
     return build_graph();
 }
 
-void SystemAnalyzer::update_graph(MAPEK_Graph &graph)
+void SystemAnalyzer::update_graph(MAPEK_Graph &graph, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg)
 {
     analyze_system(blacklisted_nodes);
     graph.clearEdges();
     add_edges_to_graph(graph);
+
+    // Search through msg for keys that contain _heartbeat_lc_state
+    for (const rcl_interfaces::msg::Parameter &param : msg->bb_params)
+    {
+        const std::string &key = param.name;
+        
+        // Check if key contains _heartbeat_lc_state
+        const std::string heartbeat_lc_suffix = "_heartbeat_lc_state";
+        size_t pos = key.find(heartbeat_lc_suffix);
+        
+        if (pos != std::string::npos)
+        {
+            // Extract node name by removing the suffix
+            std::string node_name = key.substr(0, pos);
+            
+            // Try to match with node names in the graph
+            try
+            {
+                GraphNode &node = graph[node_name];
+                
+                // Get lifecycle state value from parameter
+                // The value should be an integer representing the lifecycle state
+                if (param.value.type == rcl_interfaces::msg::ParameterType::PARAMETER_INTEGER)
+                {
+                    uint8_t lc_state = static_cast<uint8_t>(param.value.integer_value);
+                    node.lifecycle_state(lc_state);
+                    RCLCPP_DEBUG(this->get_logger(), "Updated lifecycle state for node %s to %u", 
+                                 node_name.c_str(), lc_state);
+                }
+            }
+            catch (const std::runtime_error &e)
+            {
+                RCLCPP_DEBUG(this->get_logger(), "Could not find node %s in graph: %s", 
+                             node_name.c_str(), e.what());
+            }
+        }
+    }
 }

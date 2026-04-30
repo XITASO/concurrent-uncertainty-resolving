@@ -13,7 +13,7 @@ class Monitoring
 public:
     Monitoring(bool test=false);
     MAPEK_Graph get_initial_graph();
-    void update_dependencies_in_graph(MAPEK_Graph &graph);
+    void update_dependencies_in_graph(MAPEK_Graph &graph, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg);
     void update_key_value_storage(ValueStorePtr random_value_blackboard, const std::shared_ptr<system_interfaces::msg::SetBlackboardGroup> &msg);
 private:
     std::unique_ptr<SystemAnalyzer> analyzer;  // Use a smart pointer for delayed initialization

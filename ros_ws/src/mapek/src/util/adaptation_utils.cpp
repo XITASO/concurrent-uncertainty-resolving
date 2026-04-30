@@ -27,9 +27,9 @@ uint8_t deduceAdaptationType(std::string type){
 int getAdaptationExecutionEstimate(uint8_t adaptation_type){
     switch(adaptation_type){
         case system_interfaces::msg::AdaptationType::ACTION_ACTIVATE :
-            return 10;
+            return 15;
         case system_interfaces::msg::AdaptationType::ACTION_DEACTIVATE :
-            return 10;
+            return 15;
         case system_interfaces::msg::AdaptationType::ACTION_RESTART :
             return 25;
         case system_interfaces::msg::AdaptationType::ACTION_REDEPLOY :
