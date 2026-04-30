@@ -92,6 +92,6 @@ def generate_launch_description():
         suave_launch,
         mission_node,
         mission_metrics_node,
-        bt_executor,
-        blackboard_setter,
+        #bt_executor,
+        blackboard_setter
     ])

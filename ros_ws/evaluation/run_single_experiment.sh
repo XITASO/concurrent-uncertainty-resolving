@@ -13,21 +13,6 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-#  set args
-SCENARIO_FILE=empty 
-if [ $# -gt 0 ]
-  then
-    SCENARIO_FILE=$1
-fi
-
-RULE_SET=full_rules 
-if [ $# -gt 0 ]
-  then
-    RULE_SET=$2
-fi
-
-#START_TIME=$((1 + $RANDOM % 250))
-#python3 ./evaluation/create_random_timestamp.py $START_TIME
 source /ws/install/setup.bash
 source /bt_workspace/install/setup.bash
 # make sure to read the changes
@@ -38,9 +23,6 @@ source ./install/setup.bash
 echo "Managing system configuration: CONSIDER_DEPENDENCIES=$CONSIDER_DEPENDENCIES, CONSIDER_CRITICALITY_LEVEL=$CONSIDER_CRITICALITY_LEVEL, CONSIDER_COST_FUNCTION=$CONSIDER_COST_FUNCTION"
 nvidia-smi
 
-export START_TIME=$START_TIME
-export SCENARIO_FILE=$SCENARIO_FILE
-export RULE_SET=$RULE_SET
 export CONSIDER_DEPENDENCIES=$CONSIDER_DEPENDENCIES
 export CONSIDER_CRITICALITY_LEVEL=$CONSIDER_CRITICALITY_LEVEL
 export CONSIDER_COST_FUNCTION=$CONSIDER_COST_FUNCTION
@@ -59,6 +41,23 @@ PID3=$!
 PGID3=$(ps -o pgid= -p $PID3 | tr -d ' ')
 
 sleep 2
+max_attempts=10
+attempt=0
+
+while [[ $attempt -lt $max_attempts ]]; do
+    state=$(ros2 lifecycle get /managed_subsystem/camera)
+    
+    if [[ "$state" == *"active [3]"* ]]; then
+        echo "Camera node is active. Proceeding with the experiment."
+        break
+    else
+        echo "Camera node is not active. Current state: $state"
+        echo "Waiting for camera to become active... (attempt $((attempt + 1))/$max_attempts)"
+        attempt=$((attempt + 1))
+        sleep 2
+    fi
+done
+
 
 # Start the managing subsystem
 ros2 run bt_mape_k bt_executor --ros-args --remap use_sim_time:=true &
@@ -89,6 +88,8 @@ trap cleanup EXIT
 # Simulate script work
 echo "All processes have started..."
 # 5 seconds init, 30 sec experiment, 5 buffer
-sleep 60
+sleep 100
+
+cp /ros_ws/install/bt_mape_k/share/bt_mape_k/bts/test_rules.txt /shared/test_rules.txt
 
 echo "Experiment finished."
