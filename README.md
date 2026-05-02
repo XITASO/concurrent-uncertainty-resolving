@@ -1,13 +1,9 @@
 # Resolving concurrent failures in ROS systems
-[![pipeline status](https://gitlab.xitaso.com/engl/mapek-bt/badges/main/pipeline.svg)](https://gitlab.xitaso.com/engl/mapek-bt/-/commits/main)
-
 
 ![system_overview](./figures/graphical_abstract.png)
 
 
 # Getting started
-
-[[_TOC_]]
 
 ## Requirements
 
@@ -16,7 +12,7 @@
 
 ## Additional data
 
-Download the segmentation models and the ros bags with test data for SUNSET as described in the original [SUNSET repository](https://github.com/XITASO/sunset):
+Download the segmentation models and the ros bags with test data for SUNSET as described by the [SUNSET authors](https://arxiv.org/abs/2601.13732):
 
 ## Replication of results for our ablation study
 
@@ -29,7 +25,6 @@ The logs will be stored in a folder `log_dump` next to the ros_ws directory.
 
 ## Evaluation of log files
 To calculate the results in our table, for each table there are scripts in the [experiment_setup folder](./ros_ws/src/experiment_setup/experiment_setup/)
-To retrieve our log files you can get them from the same server as above:
 
 
 ## Development
